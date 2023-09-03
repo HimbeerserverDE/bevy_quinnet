@@ -2,7 +2,7 @@ use super::QuinnetError;
 use bevy::prelude::{error, trace};
 use bytes::Bytes;
 use futures::{sink::SinkExt, StreamExt};
-use quinn::{RecvStream, SendDatagramError, SendStream, VarInt};
+use quinn::{ConnectionError, RecvStream, SendDatagramError, SendStream, VarInt};
 use std::fmt::{Debug, Display};
 use tokio::sync::{
     broadcast,
@@ -234,10 +234,12 @@ pub(crate) async fn ordered_reliable_channel_task(
         );
     }
     if let Err(err) = frame_sender.into_inner().finish().await {
-        error!(
-            "Failed to shutdown Ordered Reliable Channel stream gracefully: {}",
-            err
-        );
+        if let Some(ConnectionError::LocallyClosed) = connection.close_reason() {
+            error!(
+                "Failed to shutdown Ordered Reliable Channel stream gracefully: {}",
+                err
+            );
+        }
     }
 }
 
